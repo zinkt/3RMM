@@ -122,8 +122,8 @@ static void *extend_heap(size_t words)
     size_t size;
 
     // 分配奇数个字大小的空间，目的在于对齐
-    size = (words % 2) ? (words + 1) * WSIZE : words * WSIZE;
-    if((long)(bp = mem_sbrk(size)) == -1)
+    size = (words % 2) ? (words + 1) * WSIZE : (words * WSIZE);
+    if((long)(bp = mem_sbrk(size)) == (void *)-1)
         return NULL;
     // ???????????这里bp是位于什么位置？
     // 解释：位于上次sbrk申请的那段内存的结语块后面
@@ -145,6 +145,7 @@ static void *first_fit(size_t asize)
             return ptr;
         }
     }
+    return NULL;
 }
 
 static void *find_fit(size_t asize)
