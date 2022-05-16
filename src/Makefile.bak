@@ -1,0 +1,13 @@
+CC=gcc
+CFLAGS=
+LIBS=-lpthread
+DEPS=wlalloc.h
+
+%.o: %.c $(DEPS)
+	$(CC) -c -o $@ $< $(CFLAGS)
+
+test: wlalloc.o test.o
+	$(CC) -g -o $@.out $^ $(CFLAGS) $(LIBS) 
+
+clean:
+	rm *.o *.out
