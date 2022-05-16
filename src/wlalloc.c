@@ -304,6 +304,8 @@ static void global_init() {
 
 static void thread_exit() {
     list_add_tail(&local_thread_cache->list, &tcmeta.free_list);
+    //在local_thread_cache中的span呢???
+    
 }
 
 static void global_pool_init(){

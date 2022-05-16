@@ -21,31 +21,21 @@
 #define CACHE_ALIGN __attribute__   ((aligned (CACHE_LINE_SIZE)))
 #define THREAD_LOCAL __attribute__  ((tls_model ("initial-exec"))) __thread
 
-// #define DEFAULT_BLOCK_CLASS   (48)
-// #define LARGE_CLASS         (100)
-// #define DUMMY_CLASS         (101)
-// #define LARGE_OWNER         (0x5AA5)
 #define LARGE_OWNER             (0x7c00)
+#define LARGE_CLASS             (49)
+#define VACANT_CLASS            (50)
+#define DEFUALT_CLASS_NUM       (48)      //47?
 
 /* config */
 #define SLOW_STARTS             (2)
-#define DEFUALT_CLASS_NUM       (48)      //47?
-#define LARGE_CLASS             (49)
-#define VACANT_CLASS            (50)
 
-// //基数树：把key的2进制位分为三层，此处的key=(1<<64)/PAGE_SIZE   1<<51
-// #define HIGH_LENGTH     (1<<((64-PAGE_SIZE_BITS)/3))        //8K时，本层128k*8
-// #define MEDIUM_LENGTH   (1<<((64-PAGE_SIZE_BITS)/3))
-// #define LOW_LENGTH      (1<<((64-PAGE_SIZE_BITS-HIGH_LENGTH-MEDIUM_LENGTH)))
 #define PAGE                4096
 #define SPAN_DATA_SIZE      (64*PAGE)
 #define SPAN_SIZE           (SPAN_DATA_SIZE+sizeof(span_t))
-// #define LHEAP_SIZE      (sizeof(lheap_t))
 #define RAW_POOL_START      ((void *)((0x600000000000/SPAN_SIZE+1)*SPAN_SIZE))
 #define ALLOC_UNIT          (1024*1024*64)
 #define TC_SIZE             (sizeof(thread_cache_t))
 #define TC_ALLOC_UNIT       (ROUNDUP((128*TC_SIZE),PAGE))
-// #define WEAR_LIMIT      (10)
 // 对x取到n的整
 #define ROUNDUP(x,n)        ((x+n-1)/n*n)
 #define GET_HEADER(ptr)     ((span_t *)((uint64_t)ptr - (uint64_t)(ptr) % SPAN_SIZE))
@@ -156,7 +146,7 @@ void wl_free(void *ptr);
 /*********************************
  * 
  *********************************/
-
+void *tri_mod_read(void *ptr);
 
 /*********************************
  * 大于65536byte的请求，调用mmap
