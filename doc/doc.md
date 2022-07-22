@@ -65,7 +65,7 @@ thread_cache由线程各自维护，线程根据它来找到合适的内存块�
 
 global_pool从操作系统获取一块大内存对其进行维护，结构如下：
 
-<img src="images/global_pool.jpg" alt="global_pool" style="zoom: 80%" />
+<img src="images/global_pool.jpg" alt="global_pool" style="zoom: 75%" />
 
 global_pool将获取的内存以 64KB+sizeof(span) 为边界开始切分，将整个堆切分为若干个内存块。
 
@@ -158,7 +158,7 @@ struct global_pool_s
 
 每个线程的内存会从其所属的thread_cache处分配，当thread_cache中的span用尽时，将会从global_pool处获取新的span。具体细节如图：
 
-<img src="images/malloc_proc.jpg" alt="wlmalloc过程" />
+<img src="images/malloc_proc.jpg" alt="wlmalloc过程" style="zoom: 66%" />
 
 ## 2.3 内存回收-wl_free
 
@@ -171,7 +171,7 @@ free包含local free和remote free两种情况，每种情况中又包含大内�
 
 内存回收算法:
 
-<img src="images/free_proc.jpg" alt="wlfree过程" />
+<img src="images/free_proc.jpg" alt="wlfree过程" style="zoom: 66%" />
 
 **值得注意的是，在free过程中对另一个线程的本地堆加锁之后，并不影响被被加锁进程的free操作，并且对被加锁进程的malloc影响有限**，这是因为进程在本地堆中的free操作并不需要加锁，而且进程在本地堆中的malloc仅仅在一个span满了之后才会尝试获取该本地堆的锁，并回收remote freelist中的内容，但这种冲突情况出现的概率较低，并不会对性能造成很大的影响。
 
@@ -180,7 +180,8 @@ free包含local free和remote free两种情况，每种情况中又包含大内�
 ## 3.1 功能测试
 
 进入src/目录，执行`make test-bench -a`执行所有测试用例
-<img src="images/functionality_test.png" alt="功能性测试" />
+
+<img src="images/functionality_test.png" alt="功能性测试"  style="zoom: 60%"/>
 
 其中：
 - test1,2测试单次malloc和free的正确性
@@ -192,15 +193,20 @@ free包含local free和remote free两种情况，每种情况中又包含大内�
 进入benchmark/目录，执行./run_tests.sh即可执行所有测试用例（也可分别执行），其中使用static_analy.py生成统计图，保存在benchmark/images下
 
 - 性能测试1：测试在单线程一次申请256字节的情况下，对wlmalloc和标准库ptmalloc执行15轮测试，每轮malloc次数为10000次，累计150000次。如图所示，与标准库相差不大：
-<img src="../benchmark/images/eval_1.png" alt="性能测试1" />
+
+  <img src="../benchmark/images/eval_1.png" alt="性能测试1" style="zoom: 15%" />
 
 - 性能测试2：测试20个线程，一次申请256字节的情况下对wlmalloc和标准库ptmalloc执行15轮测试，每轮malloc次数为10000次，累计150000次。如图所示，可见，在多线程环境下，wlmalloc的效果不如标准库ptmalloc：
-<img src="../benchmark/images/eval_2_multithread.png" alt="性能测试2" />
+
+  <img src="../benchmark/images/eval_2_multithread.png" alt="性能测试2" style="zoom: 15%" />
+
 - 性能测试3：测试在单线程一次随机大小字节（0-65536）的情况下，对wlmalloc和标准库ptmalloc执行15轮测试，每轮malloc次数为10000次，累计150000次。如图所示，轮数越多，wlmalloc的分配时间越短，这是由于wlmalloc的设计中，假定分配量较大，采用了一种"慢启动"的策略，每次向global_pool申请span时，都会将下次申请的span数量翻倍，因此分配次数越多，所需时间越短。
-<img src="../benchmark/images/eval_3_rand.png" alt="性能测试3" />
+
+  <img src="../benchmark/images/eval_3_rand.png" alt="性能测试3" style="zoom: 15%" />
 
 - 性能测试4：测试在10个线程下，一次随机大小字节（0-65536）的情况下，对wlmalloc和标准库ptmalloc执行15轮测试，每轮malloc次数为10000次，累计150000次。如图所示，与性能测试3相似，分配次数越多，分配所需时间越短，使得wlmalloc多线程性能稍差的情况不那么明显。
-<img src="../benchmark/images/eval_4_rand_multi.png" alt="性能测试4" />
+
+  <img src="../benchmark/images/eval_4_rand_multi.png" alt="性能测试4" style="zoom: 15%" />
 
 # 4. 使用方式
 
@@ -221,5 +227,7 @@ wlmalloc并不完善，它的多线程效果欠佳，有待进一步优化；实
 [1]mmap(2) — Linux manual page［DB/OL］https://man7.org/linux/man-pages/man2/mmap.2.html
 
 # 7. 附录
+
+源代码见附件
 
 
