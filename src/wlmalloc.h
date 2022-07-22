@@ -1,5 +1,5 @@
-#ifndef WLALLOC_H_
-#define WLALLOC_H_
+#ifndef wlmalloc_H_
+#define wlmalloc_H_
 
 #include <unistd.h>
 #include <pthread.h>
@@ -30,7 +30,7 @@
 #define SLOW_STARTS             (2)
 
 #define PAGE                4096
-#define SPAN_DATA_SIZE      (64*PAGE)
+#define SPAN_DATA_SIZE      (16*PAGE)
 #define SPAN_SIZE           (SPAN_DATA_SIZE+sizeof(span_t))
 #define RAW_POOL_START      ((void *)((0x600000000000/SPAN_SIZE+1)*SPAN_SIZE))
 #define ALLOC_UNIT          (1024*1024*64)
@@ -55,7 +55,7 @@ typedef enum {
     IN_USE,
     SUSPEND,
     FULL,
-
+    // FREE状态不需要，只需将其移入free list即可
 } span_state_t;
 
 
@@ -75,7 +75,6 @@ struct span_s
 
     list_head list;   //管理span自己
 
-    uint8_t spared_cnt;
 };
 
 struct thread_cache_s
@@ -128,7 +127,6 @@ struct global_pool_s
     void *free_start;
     //各线程返回的span
     list_head free_list;
-    uint32_t free_list_cnt;
 };
 
 
@@ -144,7 +142,8 @@ void *wl_malloc(size_t sz);
 void wl_free(void *ptr);
 
 /*********************************
- * 
+ * 抗单粒子翻转
+ * 待实现
  *********************************/
 void *tri_mod_read(void *ptr);
 
@@ -232,6 +231,11 @@ inline static void global_init();
  * 线程首次需要分配thread_cache
  *********************************/
 inline static void check_init();
+
+/*********************************
+size映射到class
+ *********************************/
+inline static uint8_t size2cls(size_t sz);
 
 
 #endif

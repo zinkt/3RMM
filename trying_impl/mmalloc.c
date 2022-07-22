@@ -71,7 +71,7 @@ static bool init_flag = true;
  * @param size      请求分配大小
  * @return void*    有效载荷首地址;失败时,返回NULL
  */
-void *my_malloc(size_t size);
+void *wlmalloc(size_t size);
 
 /**
  * @brief 释放堆空间,向后合并空块
@@ -120,7 +120,7 @@ void *extend(size_t aligned_size);
 
 ////实现////
 
-void *my_malloc(size_t size)
+void *wlmalloc(size_t size)
 {
     // 请求堆大小 修正 使内存对齐
     size += ALIGN - size % ALIGN;
@@ -392,7 +392,7 @@ void __test_case()
             }
             oper = rand() % 200 + 500;
             start = clock();
-            segment[index] = my_malloc(oper);
+            segment[index] = wlmalloc(oper);
             end = clock();
             size_t *test = (size_t *)GET_PAYLOAD(H_PTR(segment[index]));
             printf("step[%d]: segment[%d] do[%d] cost: %f\n", step, index, oper, (double)(end - start) / CLOCKS_PER_SEC);

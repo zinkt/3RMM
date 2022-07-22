@@ -1,4 +1,4 @@
-#include "wlalloc.h"
+#include "wlmalloc.h"
 #include <pthread.h>
 #include <unistd.h>
 #include <string.h>
@@ -18,17 +18,11 @@ char sizemap2[128] = {0, 34, 35, 36, 37, 37, 38, 38, 39, 39, 39, 39, 40, 40, 40,
 THREAD_LOCAL thread_state_t thread_state = UNINIT;
 THREAD_LOCAL thread_cache_t *local_thread_cache = NULL;
 
-
-
-
-
-
-
-
 void *wl_malloc(size_t sz){
     void *ret = NULL;
     check_init();
     
+    sz += (sz == 0);
     uint8_t size_cls = size2cls(sz);
     if(likely(size_cls<DEFUALT_CLASS_NUM)){
         ret = small_alloc(size_cls);
@@ -109,6 +103,7 @@ static void swap_span_in(thread_cache_t *tc, uint8_t size_cls){
         if(!list_empty(&local_thread_cache->free_list)) {
             span = list_entry(local_thread_cache->free_list.next, span_t, list);
             list_del(&span->list);
+            span->owner = tc;
             span_init(span, size_cls);
             break;
         }
@@ -131,11 +126,15 @@ static span_t *acquire_spans(){
         void *ptr = pool.free_start + SPAN_SIZE;
         pool.free_start += (acquire+1)*SPAN_SIZE;
         pthread_mutex_unlock(&pool.lock);
+        // ???注意ptr
         for (size_t i = 0; i < acquire; i++){
             list_add(&((span_t *)ptr)->list, &local_thread_cache->free_list);
+            ptr += SPAN_SIZE;
         }
-    }else if(!list_empty){  //在freelist中找
-        //???
+    }else if(!list_empty(&pool.free_list)){  //在freelist中找
+        //这种情况，返回一个即可
+        list_add(pool.free_list.next, &local_thread_cache->free_list);
+        list_del(pool.free_list.next);
         pthread_mutex_unlock(&pool.lock);
 
     }else{  //向操作系统申请
@@ -163,7 +162,6 @@ static void span_init(span_t *span, uint8_t size_cls){
     //初始化空闲blk链表
     dlist_init(&span->blks_head, &span->blks_tail);
     
-    span->spared_cnt = 0;
 }
 
 static void remote_blk_recycle(thread_cache_t *tc){
@@ -191,7 +189,7 @@ static void span_free_blk(span_t *span, void *blk){
         case IN_USE:    //正在被使用时，无需操作（cnt已在上面+1）
             break;
         case FULL:      //span已满
-            span->state = IN_USE;
+            span->state = SUSPEND;
             list_add_tail(&span->list, &local_thread_cache->suspend[size_cls]);
             break;
         case SUSPEND:   //被挂起，且所有blk都被free时
@@ -205,14 +203,14 @@ static void span_free_blk(span_t *span, void *blk){
             exit(-1);
             break;
         }
-    }else{  //其他线程
+    }else{  //其他线程的blk
         pthread_mutex_lock(&owner->lock);
         list_add_tail((list_head *)blk, &owner->remote_blk_list);
         pthread_mutex_unlock(&owner->lock);
     }
 }
 
-inline static uint8_t size2cls(size_t sz){
+static uint8_t size2cls(size_t sz){
     uint8_t cls;
     if(likely(sz <= 1024)) {
         cls = sizemap[(sz-1)>>3];
@@ -261,6 +259,7 @@ static void thread_cache_init(){
     pthread_mutex_unlock(&tcmeta.lock);
 
     for (int i = 0; i < DEFUALT_CLASS_NUM; i++){
+        //vacant用于占位
         local_thread_cache->using[i] = &(local_thread_cache->vacant);
         INIT_LIST_HEAD(&(local_thread_cache->suspend[i]));
     }
@@ -324,9 +323,7 @@ static void global_pool_init(){
     pool.start = (void *)(((uint64_t)raw + SPAN_SIZE - 1)/SPAN_SIZE*SPAN_SIZE);
     pool.end = raw + ALLOC_UNIT;
     pool.free_start = pool.start;
-    INIT_LIST_NODE_T(&pool.free_list);
-    pool.free_list_cnt = 0;
-
+    INIT_LIST_HEAD(&pool.free_list);
     //分配空间给thread_cache元数据
     raw = syscall_alloc(NULL, TC_ALLOC_UNIT);
     if(raw < (int)0){
@@ -336,7 +333,7 @@ static void global_pool_init(){
     tcmeta.start = (void *)(((uint64_t)raw + TC_SIZE - 1)/TC_SIZE*TC_SIZE);
     tcmeta.end = raw + TC_ALLOC_UNIT;
     tcmeta.free_start = tcmeta.start;
-    INIT_LIST_NODE_T(&tcmeta.free_list);
+    INIT_LIST_HEAD(&tcmeta.free_list);
 }
 
 static void *syscall_alloc(void *pos, size_t sz){
