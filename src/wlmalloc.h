@@ -142,10 +142,12 @@ void *wl_malloc(size_t sz);
 void wl_free(void *ptr);
 
 /*********************************
- * 抗单粒子翻转
- * 待实现
+ * 三模冗余的读（或者说check）
+ * 三模冗余的写
  *********************************/
 void *tri_mod_read(void *ptr);
+void *tri_mod_write(void *ptr, void *source, size_t size);
+
 
 /*********************************
  * 大于65536byte的请求，调用mmap
