@@ -1,9 +1,6 @@
-maintest:
-	gcc -o maintest.out maintest.c
-
-mem_alloc:
-	gcc -o mem_alloc.out mem_alloc.c
-
-
+ls:
+	gcc -Wall ls.c -g -o ls.out
+lib:
+	gcc -fpic -shared -o libim.so implicit_list.c
 clean:
-	rm *.out
+	rm *.so *.out
