@@ -5,9 +5,11 @@ test-bench:wlmalloc.c test-bench.c
 test:wlmalloc.c test.c
 	gcc -g -o test.out wlmalloc.c test.c -lpthread
 
-so:
-	gcc -c -fPIC -o wlmalloc.o wlmalloc.c;
-	gcc -shared -o libwlmalloc.so wlmalloc.o;
+ls:wlmalloc.c ls.c
+	gcc -lpthread -o ls.out ls.c wlmalloc.c
+
+lib:
+	gcc -fpic -shared -o libwlmalloc.so wlmalloc.c;
 
 clean:
 	rm *.o *.so *.out

@@ -84,7 +84,7 @@ global_pool将获取的内存以 64KB+sizeof(span) 为边界开始切分，将�
 定义了内存块的元数据
 struct span_s
 {
-    thread_cache_t *owner;
+    tcache_t *owner;
     uint8_t cls;
     uint32_t blk_size;
     //blk_cnt = SPANDATA_SIZE/blk_size
@@ -105,7 +105,7 @@ struct span_s
 
 定义了thread_cache
 ```c
-struct thread_cache_s
+struct tcache_s
 {
     //被其它线程free的时候使用，基本无影响
     pthread_mutex_t lock;
@@ -143,7 +143,7 @@ thread_cache中记录了正在使用的内存块以及后台挂起内存块链�
 结构较为简单，除了锁之外，主要有3个指针记录地址以及一个空闲内存块链表。
 ```c
 //提供span和大内存请求
-struct global_pool_s
+struct gpool_s
 {
     pthread_mutex_t lock;
     void *start;
