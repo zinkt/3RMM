@@ -12,11 +12,11 @@ void gen_cls2size() {
     for(cursize = 16; cursize <= 128; cursize += 8) {
         cls2size[curcls++] = cursize;
     }
-    // 跨度2 : 128 < size <= 64KB
+    // 跨度2 : 128 < size <= 16KB
     // an+1 = 1.5an
     // an+2 = 2an
     // 但是注意，1.5an这个size不会再继续作为an
-    for(cursize = 128; cursize < 1 << 16; cursize <<= 1) {
+    for(cursize = 128; cursize < 1 << 14; cursize <<= 1) {
         cls2size[curcls++] = cursize + (cursize >> 1);
         cls2size[curcls++] = cursize << 1;
     }
@@ -27,18 +27,18 @@ void gen_size2cls() {
     int cursize;
     // 跨度1表
     curcls = 0;
-    for(cursize = 16; cursize <= 1024; cursize += 8) {
+    for(cursize = 16; cursize <= 512; cursize += 8) {
         if(cursize > cls2size[curcls]) {
             curcls++;
         }
         size2cls8[(cursize-1) >> 3] = curcls;
     }
     // 跨度2表
-    for(cursize = 1024; cursize <= 65536; cursize += 512) {
+    for(cursize = 512; cursize <= 1 << 14; cursize += 256) {
         if(cursize > cls2size[curcls]) {
             curcls++;
         }
-        size2cls512[(cursize-1) >> 9] = curcls;
+        size2cls512[(cursize-1) >> 8] = curcls;
     }
 
 }

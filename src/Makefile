@@ -9,7 +9,7 @@ ls:wlmalloc.c ls.c
 	gcc -lpthread -o ls.out ls.c wlmalloc.c
 
 lib:
-	gcc -fpic -shared -o libwlmalloc.so wlmalloc.c;
+	gcc -lpthread -fpic -shared -o libwlmalloc.so wlmalloc.c;
 
 clean:
 	rm *.o *.so *.out

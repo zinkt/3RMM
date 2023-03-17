@@ -13,12 +13,13 @@ pthread_key_t destructor;
 gpool_t pool;
 
 /* mappings 生成示例在sizeclass.c中 */
-// 33个类
-int cls2size[64] = {16, 24, 32, 40, 48, 56, 64, 72, 80, 88, 96, 104, 112, 120, 128, 192, 256, 384, 512, 768, 1024, 1536, 2048, 3072, 4096, 6144, 8192, 12288, 16384, 24576, 32768, 49152, 65536, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+// 29个类
+int cls2size[32] = {16, 24, 32, 40, 48, 56, 64, 72, 80, 88, 96, 104, 112, 120, 128, 192, 256, 384, 512, 768, 1024, 1536, 2048, 3072, 4096, 6144, 8192, 12288, 16384};
 // sizemap8[(size-1) >> 3] 等于 class
-char sizemap8[128] = {0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 15, 15, 15, 15, 15, 15, 15, 16, 16, 16, 16, 16, 16, 16, 16, 17, 17, 17, 17, 17, 17, 17, 17, 17, 17, 17, 17, 17, 17, 17, 17, 18, 18, 18, 18, 18, 18, 18, 18, 18, 18, 18, 18, 18, 18, 18, 18, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20};
-// sizemap512[(size-1) >> 9] 等于 class
-char sizemap512[128] = {0, 20, 21, 22, 23, 23, 24, 24, 25, 25, 25, 25, 26, 26, 26, 26, 27, 27, 27, 27, 27, 27, 27, 27, 28, 28, 28, 28, 28, 28, 28, 28, 29, 29, 29, 29, 29, 29, 29, 29, 29, 29, 29, 29, 29, 29, 29, 29, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32};
+char sizemap8[64] = {0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 15, 15, 15, 15, 15, 15, 15, 16, 16, 16, 16, 16, 16, 16, 16, 17, 17, 17, 17, 17, 17, 17, 17, 17, 17, 17, 17, 17, 17, 17, 17, 18, 18, 18, 18, 18, 18, 18, 18, 18, 18, 18, 18, 18, 18, 18, 18};
+// sizemap512[(size-1) >> 8] 等于 class
+char sizemap256[64] = {0, 18, 19, 20, 21, 21, 22, 22, 23, 23, 23, 23, 24, 24, 24, 24, 25, 25, 25, 25, 25, 25, 25, 25, 26, 26, 26, 26, 26, 26, 26, 26, 27, 27, 27, 27, 27, 27, 27, 27, 27, 27, 27, 27, 27, 27, 27, 27, 28, 28, 28, 28, 28, 28, 28, 28, 28, 28, 28, 28, 28, 28, 28, 28};
+
 
 /* threads */
 THREAD_LOCAL char thread_state = 0;
@@ -27,11 +28,11 @@ THREAD_LOCAL tcache_t local_tcache;
 void *wl_malloc(size_t sz){
     fprintf(stderr, "my malloc...\n");
     void *ret = NULL;
-    check_init();    
+    check_init();
     if(!sz) return ret;
 
     char size_cls = size2cls(sz);
-    if(likely(size_cls<DEFUALT_CLASS_NUM)){
+    if(likely(size_cls<DEFAULT_CLASS_NUM)){
         ret = small_alloc(size_cls);
     }else if(size_cls == LARGE_CLASS){
         ret = large_alloc(sz);
@@ -47,16 +48,18 @@ void wl_free(void *ptr){
     if(ptr == NULL){
         return;
     }
-    span_t *span = GET_HEADER(ptr);
-    tcache_t *span_owner = span->owner;
-
-    if((uint64_t)span_owner != LARGE_OWNER){    //小内存
-        span_free_blk(span, ptr);
-    }else{
-        if(syscall_free(ptr, span->blk_size)!= 0) {
+    span_t *span;
+    if(ptr < pool.start || pool.end < ptr) {
+        span = ptr - sizeof(span_t);
+        if(syscall_free((void *)span, span->blk_size) != 0) {
             fprintf(stderr, "munmap failed\n");
+            exit(-1);
         }
+        return;
     }
+    span = GET_HEADER(ptr);
+    tcache_t *span_owner = span->owner;
+    span_free_blk(span, ptr);
 }
 
 void *tri_mod_read(void *ptr)
@@ -67,15 +70,14 @@ void *tri_mod_read(void *ptr)
 
  static void *large_alloc(size_t sz){
     size_t total = sz + sizeof(span_t);
-    void *raw = syscall_alloc(total);
+    void *raw = syscall_alloc(sz);
     if(raw == (void *)-1) {
         fprintf(stderr, "mmap failed\n");
     }
-    void *ret = (void *)ROUNDUP((uint64_t)raw, SPAN_SIZE); // ??? 对齐的问题
-    span_t *span = (span_t *)ret;
+    span_t *span = (span_t *)raw;
     span->owner = (tcache_t *)LARGE_OWNER;    //只是作为区别于其他任何tc
     span->blk_size = sz;
-    return ret + sizeof(span_t);
+    return raw + sizeof(span_t);
  }
 
 static void *small_alloc(char size_cls){
@@ -256,7 +258,7 @@ static void thread_cache_init(){
         exit(-1);
     }
     // 初始化using[]和suspend[]
-    for (int i = 0; i < DEFUALT_CLASS_NUM; i++){
+    for (int i = 0; i < DEFAULT_CLASS_NUM; i++){
         local_tcache.using[i] = NULL;
         INIT_LIST_HEAD(&(local_tcache.suspend[i]));
     }
@@ -279,25 +281,25 @@ static void global_init() {
     }
     //第一次初始化时预先申请的内存
     void *raw = syscall_alloc(ALLOC_UNIT);
-    if((uint64_t)raw < 0){
+    if(raw == (void *)-1){
         fprintf(stderr, "Fatal: syscall_alloc() failed\n");
         exit(-1);
     }
     
     //初始化pool
     // ???待处理 对齐
-    pool.start = (void *)(((uint64_t)raw + SPAN_SIZE - 1)/SPAN_SIZE*SPAN_SIZE);
+    pool.start = (void *)(((size_t)raw + SPAN_SIZE - 1)/SPAN_SIZE*SPAN_SIZE);
     pool.end = raw + ALLOC_UNIT;
     pool.free_start = pool.start;
     INIT_LIST_HEAD(&pool.free_list);
-    for(int i = 0; i < DEFUALT_CLASS_NUM; i++){
+    for(int i = 0; i < DEFAULT_CLASS_NUM; i++){
         INIT_LIST_HEAD(&(pool.suspend[i]));
     }
 }
 
 static void thread_exit() {
     // inuse的span链入suspend
-    for(int i = 0; i < DEFUALT_CLASS_NUM; i++) {
+    for(int i = 0; i < DEFAULT_CLASS_NUM; i++) {
         if(local_tcache.using[i] != NULL) {
             list_add_tail(&local_tcache.using[i]->node, &local_tcache.suspend[i]);
         }
@@ -305,7 +307,7 @@ static void thread_exit() {
     span_t *span;
     pthread_mutex_lock(&pool.lock);
     // 所有suspend的链入pool的suspend中
-    for (int i = 0; i < DEFUALT_CLASS_NUM; i++){
+    for (int i = 0; i < DEFAULT_CLASS_NUM; i++){
         list_for_each_entry(span, &(local_tcache.suspend[i]), node){
             span->owner = (tcache_t *)POOL_OWNER;
         }
@@ -320,9 +322,9 @@ static void thread_exit() {
 }
 
 static void *syscall_alloc(size_t sz){
-
+    // fprintf(stderr, "mmap\n");
     // return malloc(sz);
-
+    
     //mmap
     return mmap(NULL, sz, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
     //addr: 指定映射被放置的虚拟地址，如果将addr指定为NULL，那么内核会为映射分配一个合适的地址。
@@ -332,6 +334,7 @@ static void *syscall_alloc(size_t sz){
 }
 
 static int syscall_free(void *pos, size_t sz){
+    // fprintf(stderr, "munmap\n");
     // free(pos);
     //mmap
     return munmap(pos, sz);
@@ -339,10 +342,10 @@ static int syscall_free(void *pos, size_t sz){
 
 static char size2cls(size_t sz){
     char cls;
-    if(likely(sz <= 1024)) {
+    if(likely(sz <= 512)) {
         cls = sizemap8[(sz-1)>>3];
-    }else if(sz <= 65536) {
-        cls = sizemap512[(sz-1)>>9];
+    }else if(sz <= 16384) {
+        cls = sizemap256[(sz-1)>>8];
     }else{
         cls = LARGE_CLASS;
     }
@@ -358,6 +361,7 @@ void free(void *p) {
 }
 
 void *calloc(size_t num, size_t nsize) {
+    // fprintf(stderr, "my calloc...\n");
     size_t size;
     void *ret;
     if(!num || ! nsize) return NULL;
@@ -370,9 +374,22 @@ void *calloc(size_t num, size_t nsize) {
 }
 
 void *realloc(void *p, size_t size) {
+    // fprintf(stderr, "my realloc...\n");
     void *ret;
-    span_t *span = GET_HEADER(p);
     if(!p || !size) return NULL;
+    span_t *span;
+    if(p < pool.start || pool.end < p) {
+        span = p - sizeof(span_t);
+        if(span->blk_size >= size) return p;
+        ret = malloc(size);
+        memcpy(ret, p, span->blk_size);
+        if(syscall_free((void *)span, span->blk_size) != 0) {
+            fprintf(stderr, "munmap failed\n");
+            exit(-1);
+        }
+        return ret;
+    }
+    span = GET_HEADER(p);
     if(span->blk_size >= size) return p;
     ret = malloc(size);
     if(ret) {

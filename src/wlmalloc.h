@@ -19,20 +19,20 @@
 
 #define POOL_OWNER              (0xbbbb)
 #define LARGE_OWNER             (0xaaaa)
-#define LARGE_CLASS             (63)
-#define DEFUALT_CLASS_NUM       (33)
+#define LARGE_CLASS             (31)
+#define DEFAULT_CLASS_NUM       (29)
 
 /* config */
 // #define SLOW_STARTS             (2)
 
 #define PAGE                4096
-#define SPAN_DATA_SIZE      (16*PAGE)
+#define SPAN_DATA_SIZE      (4*PAGE)
 #define SPAN_SIZE           (SPAN_DATA_SIZE+sizeof(span_t))
-#define ALLOC_UNIT          (1024*1024*1024)
+#define ALLOC_UNIT          (1024*1024*128)
 // 对x取到n的整
-#define ROUNDUP(x,n)        ((x+n-1)/n*n)
+#define ROUNDUP(x,n)        (((x)+(n)-1)/(n)*(n))
 // ???对齐的问题
-#define GET_HEADER(ptr)     ((span_t *)((uint64_t)ptr - (uint64_t)(ptr) % SPAN_SIZE))
+#define GET_HEADER(ptr)     ((span_t *)((size_t)ptr - (size_t)(ptr) % SPAN_SIZE))
 
 typedef struct span_s span_t;
 typedef struct tcache_s tcache_t;
@@ -69,10 +69,10 @@ struct tcache_s
     pthread_mutex_t lock;
 
     //当前所有大小类正在使用的span的指针
-    span_t *using[DEFUALT_CLASS_NUM];
+    span_t *using[DEFAULT_CLASS_NUM];
 
     //所有大小类已使用过的span的链表头
-    list_head suspend[DEFUALT_CLASS_NUM];
+    list_head suspend[DEFAULT_CLASS_NUM];
 
     //空闲span的链表头
     list_head free_list;
@@ -88,7 +88,7 @@ struct gpool_s
     // 完全释放的空闲span
     list_head free_list;
     // 未完全释放的span
-    list_head suspend[DEFUALT_CLASS_NUM];
+    list_head suspend[DEFAULT_CLASS_NUM];
 };
 
 
@@ -146,7 +146,7 @@ void *tri_mod_write(void *ptr, void *source, size_t size);
  static void remote_blk_recycle(tcache_t *tc);
 
 /*********************************
- * 分配小内存，<65536byte
+ * 分配小内存，<16384byte
  *********************************/
  static void *small_alloc(char size_cls);
 
