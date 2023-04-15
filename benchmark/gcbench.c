@@ -72,12 +72,17 @@ stats_rtclock( void )
   return (t.tv_sec * 1000 + t.tv_usec / 1000);
 }
 
-static const int kStretchTreeDepth    = 12;      // about 16Mb
-static const int kLongLivedTreeDepth  = 16;  // about 4Mb
-// static const int kLongLivedTreeDepth  = 10;  // about 4Mb
-static const int kArraySize  = 500000;  // about 4Mb
+// static const int kStretchTreeDepth    = 18;      // about 16Mb
+// static const int kLongLivedTreeDepth  = 16;  // about 4Mb
+// static const int kArraySize  = 500000;  // about 4Mb
+// static const int kMinTreeDepth = 4;
+// static const int kMaxTreeDepth = 16;
+
+static const int kStretchTreeDepth    = 16;
+static const int kLongLivedTreeDepth  = 14;
+static const int kArraySize  = 500000;
 static const int kMinTreeDepth = 4;
-static const int kMaxTreeDepth = 4;
+static const int kMaxTreeDepth = 14;
 
 typedef struct Node0_struct {
         struct Node0_struct * left;
@@ -228,7 +233,7 @@ int main() {
 gc_init();
  // GC_full_freq = 30;
  // GC_free_space_divisor = 16;
- // GC_enable_incremental();
+//  GC_enable_incremental();
 #endif
 	printf("Garbage Collector Test\n");
  	printf(" Live storage will peak at %d bytes.\n\n",
@@ -250,7 +255,6 @@ gc_init();
           destroy_Node(tempTree);
 #	endif
         tempTree = 0;
-
         // Create a long lived object
         printf(" Creating a long-lived binary tree of depth %d\n",
                kLongLivedTreeDepth);

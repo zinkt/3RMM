@@ -5,3 +5,5 @@
 *.zip
 try/
 *.bak
+lab_impl/
+src/mytest*

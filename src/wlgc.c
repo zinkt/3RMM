@@ -21,11 +21,11 @@ void gc_init() {
 }
 
 static char gc_need_collect() {return gc.size > gc.sweep_limit;}
-
+static char gc_need_resize() {return gc.size > gc.capacity * LOAD_FACTOR;}
 static alloc_t *search(void *p) {
     // log_debug("Search alloc: %p", p);
     // 在DEFAULT_CAPACITY为2的整次幂时，使用& (DEFAULT_CAPACITY-1)这种取模方式更快
-    uint32_t index = hash_func((uint64_t)p) % DEFAULT_CAPACITY;
+    uint32_t index = hash_func((uint64_t)p) % gc.capacity;
     alloc_t *ret = gc.allocs[index];
     while (ret)
     {
@@ -43,7 +43,7 @@ static void gc_mark_alloc(alloc_t *alloc) {
     // 如果已标记，则跳过
     if(alloc && !(alloc->size_tag & 0x1)) {
         // 标记
-        alloc->size_tag & 0x1;
+        alloc->size_tag |= 0x1;
         // 遍历对象内存，尝试找到其子对象
         char *p1 = alloc->p;
         char *p2 = alloc->p + ((alloc->size_tag)&~0x1) - sizeof(void *);
@@ -76,7 +76,7 @@ static void gc_free_alloc(alloc_t *alloc) {
     if(!alloc) return;
 
     // 将其从哈希表中删去
-    uint32_t index = hash_func((uint64_t)(alloc->p)) % DEFAULT_CAPACITY;
+    uint32_t index = hash_func((uint64_t)(alloc->p)) % gc.capacity;
     alloc_t *p = gc.allocs[index], *q = NULL;
     // 如果是第一个
     if(p == alloc) {
@@ -92,7 +92,9 @@ static void gc_free_alloc(alloc_t *alloc) {
             q = q->next;
         }
     }
-
+    if(alloc != p && alloc != q) {
+        log_fatal("free a nonexistent alloc");
+    }
     free(alloc->p);
     free(alloc);
     --gc.size;
@@ -123,7 +125,7 @@ static void gc_hash_resize() {
 static void gc_sweep() {
     if(!gc.size) return;
     // 遍历哈希表
-    for(size_t i = 0; i < DEFAULT_CAPACITY; i++) {
+    for(size_t i = 0; i < gc.capacity; i++) {
         alloc_t *alloc = gc.allocs[i];
         alloc_t *next = NULL;
         while(alloc) {
@@ -140,7 +142,7 @@ static void gc_sweep() {
     }
     // 如果回收后仍超过SWEEP_FACTOR
     // 则触发hash_resize
-    if(gc_need_collect()) {
+    if(gc_need_collect() || gc_need_resize()) {
         gc_hash_resize();
     }
 }
@@ -148,7 +150,7 @@ static void gc_sweep() {
 void gc_collect() {
     gc_mark();
     gc_sweep();
-    log_debug("End collecting");
+    // log_debug("End collecting");
 }
 
 static void register_alloc(void *p, size_t sz) {
@@ -158,7 +160,7 @@ static void register_alloc(void *p, size_t sz) {
         alloc->size_tag = sz;
         alloc->next = NULL;
         // 插入到hash表中
-        uint32_t index = hash_func((uint64_t)p) % DEFAULT_CAPACITY;
+        uint32_t index = hash_func((uint64_t)p) % gc.capacity;
         alloc_t *a = gc.allocs[index];
         gc.allocs[index] = alloc;
         alloc->next = a;
@@ -189,7 +191,14 @@ void *gc_calloc(size_t nmemb, size_t size) {
 }
 
 void *gc_realloc(void *ptr, size_t size) {
-    
+    if(!size) return NULL;
+    if(gc_need_collect()) {
+        gc_collect();
+    }
+    size_t sz = ROUNDUP(size, 8);
+    void *ret = realloc(ptr, sz);
+    register_alloc(ret, sz);
+    return ret;
 }
 
 void gc_free(void *ptr) {
@@ -201,29 +210,6 @@ void gc_free(void *ptr) {
         log_warn("Ignoring request to free unknown pointer %p", ptr);
         free(ptr);
     }
-}
-
-// Jenkin's 32 bit hash function (Guarantee's a good hash)
-// static uint32_t hash_func(void *key) {
-// 	long a = (long)key;
-// 	a = (a + 0x7ed55d16) + (a << 12);
-// 	a = (a ^ 0xc761c23c) ^ (a >> 19);
-// 	a = (a + 0x165667b1) + (a << 5);
-// 	a = (a + 0xd3a2646c) ^ (a << 9);
-// 	a = (a + 0xfd7046c5) + (a << 3);
-// 	a = (a ^ 0xb55a4f09) ^ (a >> 16);
-// 	return (uint32_t)a;
-// }
-
-static uint64_t hash_func(uint64_t key) {
-  key = (~key) + (key << 21); // key = (key << 21) - key - 1;
-  key = key ^ (key >> 24);
-  key = (key + (key << 3)) + (key << 8); // key * 265
-  key = key ^ (key >> 14);
-  key = (key + (key << 2)) + (key << 4); // key * 21
-  key = key ^ (key >> 28);
-  key = key + (key << 31);
-  return key;
 }
 
 size_t gc_collected() {return gc.gc_cnt;}

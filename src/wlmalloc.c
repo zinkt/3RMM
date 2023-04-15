@@ -62,12 +62,6 @@ void wl_free(void *ptr){
     span_free_blk(span, ptr);
 }
 
-void *tri_mod_read(void *ptr)
-{
-
-    return NULL;
-}
-
  static void *large_alloc(size_t sz){
     size_t total = sz + sizeof(span_t);
     void *raw = syscall_alloc(sz);
@@ -75,6 +69,7 @@ void *tri_mod_read(void *ptr)
         fprintf(stderr, "mmap failed\n");
     }
     span_t *span = (span_t *)raw;
+    // ???? 大内存分配时，span首地址计算问题？
     span->owner = (tcache_t *)LARGE_OWNER;    //只是作为区别于其他任何tc
     span->blk_size = sz;
     return raw + sizeof(span_t);
@@ -351,6 +346,58 @@ static char size2cls(size_t sz){
     }
     return cls;
 }
+
+void *tri_mod_read(void *ptr){
+    span_t *s = GET_HEADER(ptr);
+    if(!s) return (void *)-1;
+    size_t size = s->blk_size / 3;
+    // 分别得到三个块的指针
+    void *ptrs[3] = {ptr, ptr + size, ptr + size + size};
+    // 初始化三次对比的结果
+    int compare[3] = {0, 0, 0};
+    // 三次对比
+    for (int i = 0; i < 3; i++) {
+        compare[i] = memcmp(ptrs[i], ptrs[(i + 1) % 3], size);
+    }
+
+    // 检查三个块是否相同，相同则返回ptr
+    if (compare[0] == 0 && compare[1] == 0) {
+        return ptr;
+    } else if (compare[0] == 0 && compare[2] == 0) {
+        return ptr;
+    } else if (compare[1] == 0 && compare[2] == 0) {
+        return ptr;
+    }
+
+    // 检查是否出错，即三次比较都不同
+    if (compare[0] != compare[1] && compare[0] != compare[2] && compare[1] != compare[2]) {
+        return NULL;
+    }
+
+    // 恢复发生翻转的块
+    if (compare[0] == compare[1]) {
+        memcpy(ptrs[2], ptrs[0], size);
+    } else if (compare[0] == compare[2]) {
+        memcpy(ptrs[1], ptrs[0], size);
+    } else {
+        memcpy(ptrs[0], ptrs[1], size);
+    }
+    // 返回ptr指向正确的值的指针
+    return ptr;
+}
+
+void *tri_mod_write(void *ptr, void *source, size_t size){
+    span_t* s = GET_HEADER(ptr);   // 根据传入的地址来获得此地址所在chunk的首地址
+    if(!s || s->blk_size < size * 3) return (void *)-1;
+    void *ptr2 = ptr + size;
+    void *ptr3 = ptr2 + size;
+    // 将值写入第一块，第二块和第三块对应位置
+    memcpy(ptr, source, size); 
+    memcpy(ptr2, source, size);
+    memcpy(ptr3, source, size);
+}
+
+
 
 void *malloc(size_t size) {
     return wl_malloc(size);
