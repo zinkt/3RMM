@@ -45,20 +45,18 @@ typedef enum {
 } span_state_t;
 
 
-struct span_s
-{
+struct span_s{
     tcache_t *owner;
     span_state_t state;
     char cls;
-    uint32_t blk_size;  //blk_cnt = SPANDATA_SIZE/blk_size
+    uint32_t blk_size;//blk_cnt = SPANDATA_SIZE/blk_size
     void *free_blk; //当前可直接分配的blk
-    uint32_t free_cnt;    //所有空闲的blk数（包括在空闲blk_list中的） 
+    uint32_t free_cnt;//所有空闲的blk数（包括在空闲blk_list中的） 
     list_head blk_list; //空闲blk链表头
     list_head node;   //管理span自己
 };
 
-struct tcache_s
-{
+struct tcache_s{
     // 其他线程free时加锁，只对suspend[]和free_list加锁
     pthread_mutex_t lock;
     //当前所有大小类正在使用的span的指针
@@ -69,14 +67,12 @@ struct tcache_s
     list_head free_list;
 };
 
-//提供span和大内存请求
-struct gpool_s
-{
+struct gpool_s{
     pthread_mutex_t lock;
     void *start;
     void *end;
     void *free_start;
-    list_head free_list;    // 完全释放的空闲span
+    list_head free_list;//完全释放的空闲span
     list_head suspend[DEFAULT_CLASS_NUM];   // 未完全释放的span 
 };
 
@@ -89,8 +85,8 @@ void wl_free(void *ptr);
 
 // 三模冗余 分配，释放，读（或者说check），写
 void *tri_mod_alloc(size_t size);
-void *tri_mod_free(void *ptr);
-void *tri_mod_read(void *ptr);
+void tri_mod_free(void *ptr);
+void *tri_mod_read(void *ptr, size_t size);
 void *tri_mod_write(void *ptr, void *source, size_t size);
 
 // 大于65536byte的请求，调用mmap

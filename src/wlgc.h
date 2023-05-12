@@ -21,19 +21,17 @@ static uint8_t *__rsp;
 typedef struct alloc_s alloc_t;
 typedef struct gc_s gc_t;
 
-struct alloc_s
-{
-    void *p;                    // 指向分配内存的指针
-    size_t size_tag;            // 该段空间的大小，以及标记-清除的tag
-    alloc_t *next;              // 链
+struct alloc_s{
+    void *p;          // 指向分配内存的指针
+    size_t size_tag;  // 该段空间的大小，以及标记-清除的tag
+    alloc_t *next;    // 链
 };
 
-struct gc_s
-{
-    void *bos;                  // bottom of stack 栈底
-    alloc_t** allocs;           // 已分配 哈希表
-    size_t capacity;            // allocs容量
-    size_t size;                // 已分配alloc数
+struct gc_s{
+    void *bos;        // bottom of stack 栈底
+    alloc_t** allocs; // 已分配 哈希表
+    size_t capacity;  // allocs容量
+    size_t size;      // 已分配alloc数
     size_t sweep_limit;
     size_t gc_cnt;
 };

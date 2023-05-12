@@ -347,10 +347,18 @@ static char size2cls(size_t sz){
     return cls;
 }
 
-void *tri_mod_read(void *ptr){
-    span_t *s = GET_HEADER(ptr);
-    if(!s) return (void *)-1;
-    size_t size = s->blk_size / 3;
+void *tri_mod_alloc(size_t size)
+{
+    return wl_malloc(3*size);
+}
+
+void tri_mod_free(void *ptr)
+{
+    wl_free(ptr);
+}
+
+void *tri_mod_read(void *ptr, size_t size)
+{
     // 分别得到三个块的指针
     void *ptrs[3] = {ptr, ptr + size, ptr + size + size};
     // 初始化三次对比的结果
@@ -359,30 +367,22 @@ void *tri_mod_read(void *ptr){
     for (int i = 0; i < 3; i++) {
         compare[i] = memcmp(ptrs[i], ptrs[(i + 1) % 3], size);
     }
-
     // 检查三个块是否相同，相同则返回ptr
     if (compare[0] == 0 && compare[1] == 0) {
         return ptr;
-    } else if (compare[0] == 0 && compare[2] == 0) {
-        return ptr;
-    } else if (compare[1] == 0 && compare[2] == 0) {
-        return ptr;
     }
-
     // 检查是否出错，即三次比较都不同
-    if (compare[0] != compare[1] && compare[0] != compare[2] && compare[1] != compare[2]) {
+    if (compare[0] != 0 && compare[1] != 0 && compare[2] != 0) {
         return NULL;
     }
-
     // 恢复发生翻转的块
-    if (compare[0] == compare[1]) {
+    if (compare[0] == 0) {
         memcpy(ptrs[2], ptrs[0], size);
-    } else if (compare[0] == compare[2]) {
-        memcpy(ptrs[1], ptrs[0], size);
-    } else {
+    } else if (compare[1] == 0) {
         memcpy(ptrs[0], ptrs[1], size);
+    } else {
+        memcpy(ptrs[1], ptrs[0], size);
     }
-    // 返回ptr指向正确的值的指针
     return ptr;
 }
 

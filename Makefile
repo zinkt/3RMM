@@ -1,6 +1,6 @@
-.PHONY:benchmark
+.PHONY:test_benchmark
 
-all: lib benchmark lib
+all: lib test_benchmark lib
 
 lib: libwlmalloc.a libwlmalloc.so
 
@@ -13,12 +13,13 @@ wlmalloc.o:
 libwlmalloc.so:
 	cd src; gcc -lpthread -fpic -shared -o libwlmalloc.so wlmalloc.c
 
-benchmark:
-	cd benchmark; gcc -DGC ../src/wlgc.c ../src/log.c -o gcbench.out gcbench.c
+test_benchmark:
+	cd test_benchmark; gcc -DGC ../src/wlgc.c ../src/log.c -o gcbench.out gcbench.c
+	cd test_benchmark; gcc -lpthread ../src/wlmalloc.c tri_mod_test.c -o tri_mod_test.out
 
 # 有些环境的系统ls会出现问题，在此提供一个可单独编译的ls
-ls: wlmalloc.o
-	cd src; gcc -lpthread wlmalloc.o ls.c -o ls.out
+ls:
+	cd src; gcc ls.c -o ls
 
 clean:
-	rm -f src/*.so src/*.o src/*.out src/*.a benchmark/*.out
+	rm -f src/*.so src/*.o src/*.out src/*.a src/ls test_benchmark/*.out
