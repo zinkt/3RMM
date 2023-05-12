@@ -1,6 +1,6 @@
 .PHONY:test_benchmark
 
-all: lib test_benchmark lib
+all: lib test_benchmark lib ls
 
 lib: libwlmalloc.a libwlmalloc.so
 
